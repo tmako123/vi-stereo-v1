@@ -1,7 +1,12 @@
 #include <stdio.h>
 
+#if WIN32
+#include <libusb/libusb.h>
+#else
 #include <libusb-1.0/libusb.h>
+#endif
 
+#include <iostream>
 #include "optorusb.h"
 
 /* This is the maximum number of 'devices of interest' we are willing to store as default. */

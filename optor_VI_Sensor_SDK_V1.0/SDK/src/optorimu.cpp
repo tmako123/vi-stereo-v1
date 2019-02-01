@@ -1,14 +1,19 @@
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <string.h>
-#include <pthread.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <termios.h>
 #include <math.h>
+
+#if WIN32
+#include "winsupport.h"
+#else
+#include <unistd.h>
+#include <getopt.h>
+#include <pthread.h>
+#include <termios.h>
 #include <sys/time.h>
+#endif
 
 #define IMU_FRAME_LEN 32
 #include "optorimu.h"
@@ -18,11 +23,12 @@ bool shut_down_imu=false;
 bool visensor_imu_updated=false;
 
 bool visensor_query_imu_update(){return visensor_imu_updated;}
-bool visensor_mark_imu_update(){visensor_imu_updated=true;}
-bool visensor_erase_imu_update(){visensor_imu_updated=false;}
+bool visensor_mark_imu_update() { visensor_imu_updated = true; return true; }
+bool visensor_erase_imu_update(){visensor_imu_updated=false; return true;}
 
 int visensor_set_opt(int fd,int nSpeed, int nBits, char nEvent, int nStop)
 {
+	/*
     struct termios newtio,oldtio;
     if ( tcgetattr( fd,&oldtio) != 0)
     {
@@ -96,11 +102,13 @@ int visensor_set_opt(int fd,int nSpeed, int nBits, char nEvent, int nStop)
         return -1;
     }
     printf("set done!\n");
+	*/
     return 0;
 }
 
 int visensor_open_port(const char* dev_str)
 {
+	/*
     int fd = open(dev_str, O_RDWR|O_NOCTTY|O_NDELAY);
     if (-1 == fd)
     {
@@ -113,6 +121,8 @@ int visensor_open_port(const char* dev_str)
     if(isatty(STDIN_FILENO)==0)
         printf("standard input is not a terminal device\n");
     return fd;
+		*/
+	return 1;
 }
 
 static int find_55aa(unsigned char* buf,int len)
@@ -132,11 +142,13 @@ static int find_55aa(unsigned char* buf,int len)
 
 int visensor_send_imu_frame(int fd, unsigned char* data, int len)
 {
-    return write(fd,data,len);
+    //return write(fd,data,len);
+	return 1;
 }
 
 int visensor_get_imu_frame(int fd, unsigned char* imu_frame, double* timestamp)
 {
+	/*
     unsigned char imu_frame_buf[2*IMU_FRAME_LEN];
     memset(imu_frame_buf,0,2*IMU_FRAME_LEN);
     memset(imu_frame,0,IMU_FRAME_LEN);
@@ -248,7 +260,7 @@ int visensor_get_imu_frame(int fd, unsigned char* imu_frame, double* timestamp)
         *timestamp = new_pred;
         break;
     }
-
+	*/
     return 0;
 }
 
@@ -262,6 +274,7 @@ static int q_normalize(float* q)
 {
     float qnorm = data_norm(q,4);
     for(int i=0; i<4; i++)q[i]/=qnorm;
+	return 1;
 }
 
 
@@ -315,4 +328,5 @@ int visensor_parse_imu_frame(unsigned char* imu_frame,double timestamp, short in
 
     imudata_struct->timestamp = timestamp;
 
+	return 1;
 }

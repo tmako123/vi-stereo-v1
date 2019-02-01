@@ -1,4 +1,68 @@
 #include <stdio.h>
+
+#if 1
+#include <string.h>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
+#include "optorusb.h"
+#include "optorcam.h"
+#include "optorimu.h"
+
+using namespace cv;
+
+bool close_img_viewer = false;
+void opencv_showimg(void)
+{
+	Mat img_left(Size(visensor_img_width(), visensor_img_height()), CV_8UC1);
+	double left_timestamp;
+	Mat img_right(Size(visensor_img_width(), visensor_img_height()), CV_8UC1);
+	double right_timestamp;
+	visensor_imudata img_imudata;
+	while (!close_img_viewer)
+	{
+		if (visensor_is_leftcam_open())
+		{
+			if (visensor_is_left_img_new())
+			{
+				visensor_get_left_latest_img(img_left.data, &left_timestamp, &img_imudata);
+				printf("L-Time: %8.6f, IMUTime: %8.6f\n", left_timestamp, img_imudata.timestamp);
+				imshow("left", img_left);
+			}
+		}
+		
+		if (visensor_is_rightcam_open())
+		{
+			if (visensor_is_right_img_new())
+			{
+				visensor_get_right_latest_img(img_right.data, &right_timestamp);
+				printf("R-Time: %8.6f\n", right_timestamp);
+				imshow("right", img_right);
+			}
+		}
+		waitKey(1);
+	}
+}
+
+int main(int argc, char* argv[])
+{
+	visensor_load_settings("../optor_VISensor_Setups.txt");
+	int r = visensor_Start_Cameras();
+	if (r < 0)
+	{
+		printf("Opening cameras failed...\r\n");
+		return r;
+	}
+
+	usleep(100000);
+
+	opencv_showimg();
+	return 0;
+}
+
+#else
+
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -150,3 +214,4 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+#endif

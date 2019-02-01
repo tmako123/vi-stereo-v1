@@ -1,7 +1,13 @@
+#ifndef OPTORUSBCAM_H
+
+#if WIN32
+#include "winsupport.h"
+#else
 #include <sys/time.h>
+#endif
 #include "optorimu.h"
 
-#ifndef OPTORUSBCAM_H
+
 #define OPTORUSBCAM_H
 #define IMU_FRAME_LEN 32
 #define IMG_WIDTH_VGA 	640

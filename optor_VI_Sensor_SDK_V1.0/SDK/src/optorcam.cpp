@@ -1,13 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <getopt.h>
 #include <fcntl.h>
 #include <string.h>
 #include <math.h>
-#include <pthread.h>
-#include <sys/time.h>
-#include <linux/types.h>
 
 #include <iostream>
 #include <algorithm>
@@ -17,7 +12,19 @@
 #include <iomanip>
 #include <sstream>
 
+#if WIN32
+#include <libusb/libusb.h>
+#include <thread>
+#include "winsupport.h"
+
+#else
 #include <libusb-1.0/libusb.h>
+#include <unistd.h>
+#include <getopt.h>
+#include <pthread.h>
+#include <sys/time.h>
+#include <linux/types.h>
+#endif
 
 #include "optorimu.h"
 #include "optorusb.h"
@@ -54,7 +61,11 @@
 #define CAM_I2C_ADDR		0x5C //0x5C
 
 #define IMU_FRAME_LEN 32
+#if WIN32
+std::thread imu_thread;
+#else
 pthread_t imu_thread;
+#endif
 int imu_fd=0;
 bool imu_close=false;
 
@@ -99,8 +110,13 @@ int gFPS = 27;
 int gSelectCam = 0;
 int HORIZ_BLK=150;
 
+#if WIN32
+std::thread cam1_capture_thread;
+std::thread cam2_capture_thread;
+#else
 pthread_t cam1_capture_thread;
 pthread_t cam2_capture_thread;
+#endif
 
 int gFrameCam1=0;
 int gFrameCam2=0;
@@ -689,7 +705,7 @@ int control_camera(int cam_no, unsigned char instruction)
     int r = cyusb_control_transfer(get_cam_no_handle(cam_no),0xC0,instruction,0,0,buf,0,1000);
     if(r != 0)
     {
-        //printf("cam%d,i:0x%02X,r:%d\r\n",cam_no,instruction,r);
+        printf("cam%d,i:0x%02X,r:%d\r\n",cam_no,instruction,r);
     }
     return r;
 }
@@ -741,6 +757,7 @@ int check_img(int cam_no,unsigned char *pImg,unsigned char *pImgPass)
         control_camera(cam_no,fps_control());
         //printf("Cam%d image check error!\n",cam_no);
     }
+	return 1;
 }
 
 float visensor_get_hardware_fps()
@@ -784,8 +801,22 @@ static void set_camreg_default(int cam_no)
     camera_i2c_write(cam_no,0xAF,0x0003);
 }
 
+#if WIN32
+void cam1_capture(void)
+#else
 void *cam1_capture(void*)
+#endif
 {
+#if WIN32
+	int res = libusb_claim_interface(get_cam_no_handle(1), 0);
+	res = libusb_claim_interface(get_cam_no_handle(1), 1);
+	//res = libusb_set_interface_alt_setting(get_cam_no_handle(1), 1, 0);
+	//res = libusb_set_interface_alt_setting(get_cam_no_handle(1), 1, 1);
+
+	if (res != 0) {
+		printf("device claim interface error: %d\n", res);
+	}printf("claim interface 1\n");
+#endif
     set_camreg_default(1);
     int r,transferred = 0;
     camera_i2c_write(1,0x07,0x0188);//Normal
@@ -875,20 +906,39 @@ void *cam1_capture(void*)
         }
     }
 
+#if !WIN32
     pthread_exit(NULL);
+#endif
 }
 
+#if WIN32
+void cam2_capture(void)
+#else
 void *cam2_capture(void*)
+#endif
 {
+#if WIN32
+	int res = libusb_claim_interface(get_cam_no_handle(2), 0);
+	res = libusb_claim_interface(get_cam_no_handle(2), 1);
+	//res = libusb_set_interface_alt_setting(get_cam_no_handle(1), 1, 0);
+    //res = libusb_set_interface_alt_setting(get_cam_no_handle(1), 1, 1);
+
+
+	if (res != 0) {
+		printf("device claim interface error: %d\n", res);
+	}printf("claim interface 1\n");
+#endif
+
     set_camreg_default(2);
     int r,transferred = 0;
-
     camera_i2c_write(2,0x07,0x0188);//Normal
     camera_i2c_write(2,0x06,0x002D);//VB
     // cmos设置
     camera_i2c_write(2,0x05,current_HB);//HB
-    if(!visensor_resolution_status)camera_i2c_write(2,0x04,IMG_WIDTH_VGA);//HW
-    else camera_i2c_write(2,0x04,IMG_WIDTH_WVGA);//HW
+    if(!visensor_resolution_status)
+		camera_i2c_write(2,0x04,IMG_WIDTH_VGA);//HW
+    else 
+		camera_i2c_write(2,0x04,IMG_WIDTH_WVGA);//HW
     switch (EG_mode) {
     case 0:
         camera_i2c_write(2,0xAF,0x00);//AEC
@@ -967,7 +1017,9 @@ void *cam2_capture(void*)
         }
     }
 
+#if !WIN32
     pthread_exit(NULL);
+#endif
 }
 
 static int visensor_get_latest_count(struct img_s im[], int* index=NULL)
@@ -1111,12 +1163,22 @@ int visensor_Start_Cameras()
         //Create capture thread
         gettimeofday(&visensor_startTime,NULL);		// 初始化时间起点
         int temp=0;
-        if(gSelectCam&0x01)
+		if (gSelectCam & 0x01)
+#if WIN32
+			cam1_capture_thread = std::thread(cam1_capture);
+			//printf("Failed to create thread cam1_capture_thread\r\n");
+#else
             if(temp = pthread_create(&cam1_capture_thread, NULL, cam1_capture, NULL))
                 printf("Failed to create thread cam1_capture_thread\r\n");
+#endif
        if(gSelectCam&0x02)
-            if(temp = pthread_create(&cam2_capture_thread, NULL, cam2_capture, NULL))
+#if WIN32
+		   cam2_capture_thread = std::thread(cam2_capture);
+		   //printf("Failed to create thread cam2_capture_thread\r\n");
+#else
+		   if(temp = pthread_create(&cam2_capture_thread, NULL, cam2_capture, NULL))
                 printf("Failed to create thread cam2_capture_thread\r\n");
+#endif
         usleep(1000);
 
         return ret_val;
@@ -1127,6 +1189,14 @@ int visensor_Start_Cameras()
 void visensor_Close_Cameras()
 {
     shut_down_tag=true;
+#if WIN32
+	if (cam1_capture_thread.joinable()) {
+		cam1_capture_thread.join();
+	}
+	if (cam2_capture_thread.joinable()) {
+		cam2_capture_thread.join();
+	}
+#else
     /* Waiting for Camera threads */
     if(cam1_capture_thread !=0)
     {
@@ -1136,6 +1206,7 @@ void visensor_Close_Cameras()
     {
         pthread_join(cam2_capture_thread,NULL);
     }
+#endif
     cyusb_close();
 }
 
@@ -1187,7 +1258,11 @@ int visensor_get_imudata_latest(visensor_imudata* imudata)
     return 0;
 }
 
+#if WIN32
+void imu_data_feed(void)
+#else
 void *imu_data_feed(void*)
+#endif
 {
     unsigned char imu_frame[IMU_FRAME_LEN];
     double timestamp;
@@ -1229,7 +1304,9 @@ void *imu_data_feed(void*)
         }
         usleep(100);
     }
+#if !WIN32
     pthread_exit(NULL);
+#endif
 }
 
 int visensor_Start_IMU()
@@ -1260,18 +1337,27 @@ int visensor_Start_IMU()
     imu_fd=fd;
 
     int temp;
+#if WIN32
+	//imu_thread = std::thread(imu_data_feed);
+#else
     if(temp = pthread_create(&imu_thread, NULL, imu_data_feed, NULL))
         printf("Failed to create thread imu_data\r\n");
-
+#endif
     return fd;
 }
 
 void visensor_Close_IMU()
 {
     imu_close=true;
-    /* Waiting for imu_thread */
+#if WIN32
+	if (imu_thread.joinable()) {
+		imu_thread.join();
+	}
+#else
+	/* Waiting for imu_thread */
     if(imu_thread !=0)
     {
         pthread_join(imu_thread,NULL);
     }
+#endif
 }
