@@ -1,6 +1,6 @@
 #
 Mode
-12
+13
 #
 HighSpeed Mode
 m1,left,150,VGA,54
@@ -19,10 +19,10 @@ m11,stereo,274,VGA,27
 m12,stereo,162,WVGA,27
 #
 m13,Manual Mode
-2
-150
-WVGA
-54
+0
+250
+VGA
+27
 #
 EG_mode
 4

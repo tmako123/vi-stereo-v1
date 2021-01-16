@@ -27,7 +27,7 @@ void opencv_showimg(void)
 			if (visensor_is_left_img_new())
 			{
 				visensor_get_left_latest_img(img_left.data, &left_timestamp, &img_imudata);
-				printf("L-Time: %8.6f, IMUTime: %8.6f\n", left_timestamp, img_imudata.timestamp);
+				//printf("L-Time: %8.6f, IMUTime: %8.6f\n", left_timestamp, img_imudata.timestamp);
 				imshow("left", img_left);
 			}
 		}
@@ -37,7 +37,7 @@ void opencv_showimg(void)
 			if (visensor_is_right_img_new())
 			{
 				visensor_get_right_latest_img(img_right.data, &right_timestamp);
-				printf("R-Time: %8.6f\n", right_timestamp);
+				//printf("R-Time: %8.6f\n", right_timestamp);
 				imshow("right", img_right);
 			}
 		}

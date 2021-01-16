@@ -755,8 +755,9 @@ int check_img(int cam_no,unsigned char *pImg,unsigned char *pImgPass)
     if(*pImgPass == 0)
     {
         control_camera(cam_no,fps_control());
-        //printf("Cam%d image check error!\n",cam_no);
+        printf("Cam%d image check error!\n",cam_no);
     }
+	//*pImgPass = 1;
 	return 1;
 }
 
@@ -818,7 +819,7 @@ void *cam1_capture(void*)
 	}printf("claim interface 1\n");
 #endif
     set_camreg_default(1);
-    int r,transferred = 0;
+    int ret,transferred = 0;
     camera_i2c_write(1,0x07,0x0188);//Normal
     camera_i2c_write(1,0x06,0x002D);//VB
     // cmos设置
@@ -890,14 +891,24 @@ void *cam1_capture(void*)
 
             im_buf_size = (visensor_resolution_status==1?IMG_BUF_SIZE_WVGA:IMG_BUF_SIZE_VGA);
 //            im_buf_size = (visensor_resolution_status==1?IMG_SIZE_WVGA:IMG_SIZE_VGA);
-            r = cyusb_bulk_transfer(pcam1_handle, 0x82, im1[gFrameCam1].data, im_buf_size, &transferred, 2000);
+            ret = cyusb_bulk_transfer(pcam1_handle, 0x82, im1[gFrameCam1].data, im_buf_size, &transferred, 2000);
             gettimeofday(&cap_systime,NULL);
             im1[gFrameCam1].timestamp = cap_systime.tv_sec+0.000001*cap_systime.tv_usec-time_offset;
-            if(r)
+            if(ret)
             {
-            	printf("cam1 bulk transfer returned: %d\n",r);
+				printf("cam1 bulk transfer returned: %d\n", ret);
+				if (ret == LIBUSB_ERROR_TIMEOUT)
+					printf("libusb_bulk_transfer : LIBUSB_ERROR_TIMEOUT");
+				else if (ret == LIBUSB_ERROR_PIPE)
+					printf("libusb_bulk_transfer : LIBUSB_ERROR_PIPE");
+				else if (ret == LIBUSB_ERROR_OVERFLOW)
+					printf("libusb_bulk_transfer : LIBUSB_ERROR_OVERFLOW");
+				else if (ret == LIBUSB_ERROR_NO_DEVICE)
+					printf("libusb_bulk_transfer : LIBUSB_ERROR_NO_DEVICE");
+				else
+					printf("libusb_bulk_transfer : UNKNOWN");
             }
-           check_img(1,im1[gFrameCam1].data,&im1[gFrameCam1].pass);
+            check_img(1,im1[gFrameCam1].data,&im1[gFrameCam1].pass);
             if(im1[gFrameCam1].pass==1)
             {
                 count++;
@@ -930,7 +941,7 @@ void *cam2_capture(void*)
 #endif
 
     set_camreg_default(2);
-    int r,transferred = 0;
+    int ret,transferred = 0;
     camera_i2c_write(2,0x07,0x0188);//Normal
     camera_i2c_write(2,0x06,0x002D);//VB
     // cmos设置
@@ -999,13 +1010,23 @@ void *cam2_capture(void*)
             im2[gFrameCam2].pass=0;
             im_buf_size = (visensor_resolution_status==1?IMG_BUF_SIZE_WVGA:IMG_BUF_SIZE_VGA);
 	    //im_buf_size = (visensor_resolution_status==1?IMG_SIZE_WVGA:IMG_SIZE_VGA);
-            r = cyusb_bulk_transfer(pcam2_handle, 0x82, im2[gFrameCam2].data, im_buf_size, &transferred, 2000);
+            ret = cyusb_bulk_transfer(pcam2_handle, 0x82, im2[gFrameCam2].data, im_buf_size, &transferred, 2000);
             gettimeofday(&cap_systime,NULL);
             im2[gFrameCam2].timestamp = cap_systime.tv_sec+0.000001*cap_systime.tv_usec-time_offset;
-            if(r)
-	    {
-		printf("cam2 bulk transfer returned: %d\n",r);
-	    }	
+			if (ret)
+			{
+				printf("cam2 bulk transfer returned: %d\n", ret);
+				if (ret == LIBUSB_ERROR_TIMEOUT)
+					printf("libusb_bulk_transfer : LIBUSB_ERROR_TIMEOUT");
+				else if (ret == LIBUSB_ERROR_PIPE)
+					printf("libusb_bulk_transfer : LIBUSB_ERROR_PIPE");
+				else if (ret == LIBUSB_ERROR_OVERFLOW)
+					printf("libusb_bulk_transfer : LIBUSB_ERROR_OVERFLOW");
+				else if (ret == LIBUSB_ERROR_NO_DEVICE)
+					printf("libusb_bulk_transfer : LIBUSB_ERROR_NO_DEVICE");
+				else
+					printf("libusb_bulk_transfer : UNKNOWN");
+			}
 
 	    //printf("cam2 bulk transfer returned: %d\n",r);
             check_img(2,im2[gFrameCam2].data,&im2[gFrameCam2].pass);
